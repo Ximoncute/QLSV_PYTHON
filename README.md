@@ -1,66 +1,64 @@
-Modern UniMS - University Management System
+# Modern UniMS - University Management System
+
 Hệ thống quản lý sinh viên hiện đại với Backend FastAPI và Frontend Tkinter (Modular Design). Được tối ưu hóa cho hệ điều hành Windows.
 
-🚀 Tính năng chính
-Dashboard quản trị: Thống kê thời gian thực, biểu đồ phân bổ sinh viên, và quản lý tình trạng hệ thống.
-Quản lý học thuật: Khoa, Ngành, Lớp, và hồ sơ Sinh viên.
-Cổng tuyển sinh: Tiếp nhận và duyệt hồ sơ thí sinh, tự động xếp lớp và cấp MSSV.
-Cổng sinh viên: Xem điểm số (thanh điểm 10/4), bảng điểm, học phí và thông báo.
-Bảo mật: Xác thực OAuth2 với mã hóa mật khẩu Bcrypt.
-🛠 Yêu cầu hệ thống (Windows)
-Python: Phiên bản 3.10 trở lên.
-Thư viện: Danh sách các thư viện cần thiết có trong requirements.txt.
-📦 Cài đặt
-Mở Terminal (PowerShell hoặc CMD) tại thư mục dự án.
-Cài đặt các thư viện cần thiết:
-pip install -r requirements.txt
-🏃 Cách chạy ứng dụng bằng Window
+## 🚀 Tính năng chính
+- **Dashboard quản trị**: Thống kê thời gian thực, biểu đồ phân bổ sinh viên, và quản lý tình trạng hệ thống.
+- **Quản lý học thuật**: Khoa, Ngành, Lớp, và hồ sơ Sinh viên.
+- **Cổng tuyển sinh**: Tiếp nhận và duyệt hồ sơ thí sinh, tự động xếp lớp và cấp MSSV.
+- **Cổng sinh viên**: Xem điểm số (thanh điểm 10/4), bảng điểm, học phí và thông báo.
+- **Bảo mật**: Xác thực OAuth2 với mã hóa mật khẩu Bcrypt.
+
+## 🛠 Yêu cầu hệ thống (Windows)
+- **Python**: Phiên bản 3.10 trở lên.
+- **Thư viện**: Danh sách các thư viện cần thiết có trong `requirements.txt`.
+
+## 📦 Cài đặt
+1. Mở Terminal (PowerShell hoặc CMD) tại thư mục dự án.
+2. Cài đặt các thư viện cần thiết:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+## 🏃 Cách chạy ứng dụng
 Chỉ cần nhấp đúp vào file:
+- `run_app.bat`
 
-run_app.bat
-🛠 Yêu cầu hệ thống (MAC/LINUX)
-Python: Phiên bản 3.10 trở lên.
-Thư viện: Danh sách các thư viện cần thiết có trong requirements.txt.
-📦 Cài đặt
-Mở Terminal (PowerShell hoặc CMD) tại thư mục dự án.
-Cài đặt các thư viện cần thiết:
-pip3 install -r requirements.txt
-🏃 Cách chạy ứng dụng bằng MAC/LINUX
-Chỉ cần nhấp đúp vào file:
-
-"nano run_app.sh"
-paste vào run_app.sh #!/bin/bash
-echo "Starting Modern UniMS (FastAPI + Modular Tkinter)..."
-
-Initialize DB
-echo "Initializing fresh database..." python3 backend1/init_db.py
-
-Start Backend
-echo "Starting backend..." python3 backend1/run.py & BACKEND_PID=$!
-
-Wait for API
-echo "Waiting for API to start..." sleep 5
-
-Start Frontend
-echo "Starting frontend..." python3 frontend/main.py echo "App session finished."
-
-Kill backend (nếu tồn tại)
-if ps -p $BACKEND_PID > /dev/null then kill $BACKEND_PID fi
-
-chạy "run_app.sh" -> ./run_app.sh
 File này sẽ tự động:
+1. Đồng bộ hóa Database (SQLite).
+2. Khởi chạy Backend API (Cổng 8000).
+3. Khởi chạy Giao diện (Tkinter).
 
-Đồng bộ hóa Database (SQLite).
-Khởi chạy Backend API (Cổng 8000).
-Khởi chạy Giao diện (Tkinter).
-🔑 Tài khoản thử nghiệm
-Vai trò	Tên đăng nhập	Mật khẩu
-Quản trị viên	admin1	admin123
-Sinh viên	SV001	123456
-📂 Cấu trúc dự án
-backend1/: Chứa API FastAPI, Models, Routers và Business Logic.
-frontend/: Chứa giao diện Tkinter được chia theo module (Views, Core, Styles).
-university.db: File cơ sở dữ liệu SQLite của ứng dụng.
-Phát triển bởi Đội ngũ UniMS (Modern Edition)
+## 🔑 Tài khoản thử nghiệm
+| Vai trò | Tên đăng nhập | Mật khẩu |
+| :--- | :--- | :--- |
+| **Quản trị viên** | `admin1` | `admin123` |
+| **Sinh viên** | `SV001` | `123456` |
 
-QLSV_PYTHON
+## 📂 Cấu trúc dự án
+- `backend1/`: Chứa API FastAPI, Models, Routers và Business Logic.
+- `frontend/`: Chứa giao diện Tkinter được chia theo module (Views, Core, Styles).
+- `university.db`: File cơ sở dữ liệu SQLite của ứng dụng.
+
+---
+*Phát triển bởi Đội ngũ UniMS (Modern Edition)*
+
+## 🛠 Yêu cầu hệ thống (LINUX/MAC)
+- **Python**: Phiên bản 3.10 trở lên.
+- **Thư viện**: Danh sách các thư viện cần thiết có trong `requirements.txt`.
+
+## 📦 Cài đặt
+1. Mở Terminal (PowerShell hoặc CMD) tại thư mục dự án.
+2. Cài đặt các thư viện cần thiết:
+   ```bash
+   pip3 install -r requirements.txt
+   ```
+
+## 🏃 Cách chạy ứng dụng
+- tạo file , chạy lệnh " nano run_app.sh "
+- paste nội dung vào file đó :
+ #!/bin/bash
+<img width="937" height="802" alt="image" src="https://github.com/user-attachments/assets/783d3d42-e53f-4310-9d72-9a3b2356f99b" />
+- cấp quyền thực thi : chmod +x run_app.sh
+- chạy file đó : ./run_app.sh
+
