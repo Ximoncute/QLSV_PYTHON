@@ -59,5 +59,6 @@ File này sẽ tự động:
 - paste nội dung vào file đó :
  #!/bin/bash
 <img width="937" height="802" alt="image" src="https://github.com/user-attachments/assets/783d3d42-e53f-4310-9d72-9a3b2356f99b" />
+- cấp quyền thực thi : chmod +x run_app.sh
 - chạy file đó : ./run_app.sh
 
