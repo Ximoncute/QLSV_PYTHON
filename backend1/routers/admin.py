@@ -15,7 +15,7 @@ from backend1.models.student import SinhVien
 from backend1.models.admission import HSO_XetTuyen, PT_XetTuyen, TK_XetTuyen
 from backend1.schemas.admin import (
     GradeInput, ApproveResponse, KhoaCreate, NganhCreate, LopCreate, 
-    KhoaRead, NganhRead, LopRead, EnrollRequest
+    KhoaRead, NganhRead, LopRead, EnrollRequest, MonHocCreate, MonHocRead
 )
 from backend1.core import security
 
@@ -105,6 +105,35 @@ def update_lop(ma_lop: str, item: LopCreate, db: Session = Depends(get_db)):
 @router.delete("/lop/{ma_lop}", response_model=Any)
 def delete_lop(ma_lop: str, db: Session = Depends(get_db)):
     db_item = db.query(Lop).filter(Lop.ma_lop == ma_lop).first()
+    if not db_item: raise HTTPException(404, "Not found")
+    db.delete(db_item)
+    db.commit()
+    return {"success": True}
+
+# --- MonHoc CRUD ---
+@router.get("/mon-hoc/", response_model=dict)
+def list_mon_hoc(db: Session = Depends(get_db)):
+    items = db.query(MonHoc).all()
+    return {"success": True, "data": [MonHocRead.model_validate(i) for i in items]}
+
+@router.post("/mon-hoc/", response_model=Any)
+def create_mon_hoc(item: MonHocCreate, db: Session = Depends(get_db)):
+    db_item = MonHoc(**item.dict())
+    db.add(db_item)
+    db.commit()
+    return {"success": True, "message": "Created"}
+
+@router.put("/mon-hoc/{ma_mh}", response_model=Any)
+def update_mon_hoc(ma_mh: str, item: MonHocCreate, db: Session = Depends(get_db)):
+    db_item = db.query(MonHoc).filter(MonHoc.ma_mh == ma_mh).first()
+    if not db_item: raise HTTPException(404, "Not found")
+    for k, v in item.dict().items(): setattr(db_item, k, v)
+    db.commit()
+    return {"success": True}
+
+@router.delete("/mon-hoc/{ma_mh}", response_model=Any)
+def delete_mon_hoc(ma_mh: str, db: Session = Depends(get_db)):
+    db_item = db.query(MonHoc).filter(MonHoc.ma_mh == ma_mh).first()
     if not db_item: raise HTTPException(404, "Not found")
     db.delete(db_item)
     db.commit()

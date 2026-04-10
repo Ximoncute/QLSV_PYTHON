@@ -179,6 +179,42 @@ def init_db():
                 db.add(PT_XetTuyen(ma_ptxt=ptid, ma_hso=hsid, ma_nganh=nganh, phuong_thuc=ptxt, diem=diem, trang_thai=status))
 
         db.commit()
+
+        # 7. Tuition Data (Hoc Phi)
+        sv_list = ["SV001", "SV002"]
+        for sid in sv_list:
+            if not db.query(HocPhi).filter_by(ma_sv=sid, ten_hoc_ky="Hoc ky I - 2023-2024").first():
+                hp = HocPhi(
+                    ma_sv=sid,
+                    ten_hoc_ky="Hoc ky I - 2023-2024",
+                    tong_tien=15000000,
+                    da_dong=15000000,
+                    con_no=0,
+                    han_nop=date(2023, 11, 30),
+                    trang_thai="Da hoan thanh"
+                )
+                db.add(hp)
+                db.flush()
+                db.add(HocPhiChiTiet(hoc_phi_id=hp.id, ten_khoan_muc="Hoc phi tin chi", so_tien=13000000, trang_thai="Da dong"))
+                db.add(HocPhiChiTiet(hoc_phi_id=hp.id, ten_khoan_muc="Bao hiem y te", so_tien=1000000, trang_thai="Da dong"))
+                db.add(HocPhiChiTiet(hoc_phi_id=hp.id, ten_khoan_muc="Le phi thu vien", so_tien=1000000, trang_thai="Da dong"))
+
+            if not db.query(HocPhi).filter_by(ma_sv=sid, ten_hoc_ky="Hoc ky II - 2023-2024").first():
+                hp2 = HocPhi(
+                    ma_sv=sid,
+                    ten_hoc_ky="Hoc ky II - 2023-2024",
+                    tong_tien=18500000,
+                    da_dong=5000000,
+                    con_no=13500000,
+                    han_nop=date(2024, 4, 30),
+                    trang_thai="Con no"
+                )
+                db.add(hp2)
+                db.flush()
+                db.add(HocPhiChiTiet(hoc_phi_id=hp2.id, ten_khoan_muc="Hoc phi tin chi", so_tien=17000000, trang_thai="Da dong partial"))
+                db.add(HocPhiChiTiet(hoc_phi_id=hp2.id, ten_khoan_muc="Le phi thi", so_tien=1500000, trang_thai="Chua dong"))
+
+        db.commit()
         print(f"[OK] Database sync complete. Total students: {db.query(SinhVien).count()}, Total Candidates: {db.query(TK_XetTuyen).count()}")
 
     finally:

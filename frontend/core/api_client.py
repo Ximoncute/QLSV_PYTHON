@@ -67,18 +67,24 @@ class APIClient:
         except Exception as e:
             return {"error": str(e)}
 
-    def post(self, endpoint: str, data: Dict = None) -> Dict:
+    def post(self, endpoint: str, data: Dict = None, json: Any = None) -> Dict:
         try:
             url = f"{self.base_url}{endpoint}"
-            response = requests.post(url, json=data or {}, headers=self.get_headers(), timeout=10)
+            print(f"DEBUG_API: Calling POST {url}")
+            # Use 'json' if provided, otherwise fallback to positional 'data'
+            payload = json if json is not None else (data or {})
+            response = requests.post(url, json=payload, headers=self.get_headers(), timeout=10)
             return response.json()
         except Exception as e:
             return {"error": str(e)}
 
-    def put(self, endpoint: str, data: Dict) -> Dict:
+    def put(self, endpoint: str, data: Dict = None, json: Any = None) -> Dict:
         try:
             url = f"{self.base_url}{endpoint}"
-            response = requests.put(url, json=data, headers=self.get_headers(), timeout=10)
+            print(f"DEBUG_API: Calling PUT {url}")
+            # Use 'json' if provided, otherwise fallback to positional 'data'
+            payload = json if json is not None else data
+            response = requests.put(url, json=payload, headers=self.get_headers(), timeout=10)
             return response.json()
         except Exception as e:
             return {"error": str(e)}

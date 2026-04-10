@@ -1,4 +1,4 @@
-# Version 3.0.3 - Reload Trigger
+# Version 3.0.4 - Force Reload Trigger
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend1.db.session import engine, Base
@@ -28,16 +28,16 @@ app.add_middleware(
 # 2. Setup Exception Handlers
 setup_exception_handlers(app)
 
-# 3. Register Routers
+# 3. Register Routers (Order matters for route resolution)
+app.include_router(student.student_router, prefix="/sinh-vien", tags=["Student Portal"])
+app.include_router(student.academic_router, prefix="/hoc-tap", tags=["Grades"]) 
 app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 app.include_router(stats.router, prefix="/quan-tri", tags=["Statistics"])
 app.include_router(admin.router, prefix="/quan-tri", tags=["Admin Operations"])
-app.include_router(admin.router, prefix="", tags=["Academic CRUD"]) 
-app.include_router(student.router, prefix="/sinh-vien", tags=["Student Portal"])
-app.include_router(student.router, prefix="/hoc-tap", tags=["Grades"]) 
 app.include_router(admission.router, prefix="/admission", tags=["Admissions"])
 app.include_router(graduation.router, prefix="/tot-nghiep", tags=["Graduation"])
 app.include_router(notifications.router, prefix="/thong-bao", tags=["Notifications"])
+app.include_router(admin.router, prefix="", tags=["Academic CRUD"]) 
 
 print(f"DEBUG_BACKEND: All routers included. Registered routes count: {len(app.routes)}")
 print(f"DEBUG_BACKEND: Registered paths: {[r.path for r in app.routes]}")

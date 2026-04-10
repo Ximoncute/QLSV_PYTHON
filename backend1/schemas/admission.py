@@ -17,3 +17,13 @@ class PTXTCreate(BaseModel):
     MaNganh: str
     PhuongThuc: str
     Diem: float
+
+class AdmissionProfileUpdate(BaseModel):
+    ho_ten: Optional[str] = None
+    cccd: Optional[str] = None
+    sdt: Optional[str] = None
+
+class AdmissionSubmit(BaseModel):
+    ma_nganh: str
+    phuong_thuc: str
+    diem: Optional[str] = "0.0"

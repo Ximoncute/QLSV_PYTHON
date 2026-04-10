@@ -1,13 +1,28 @@
-from typing import Any, List
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Any, List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from backend1.db.session import get_db
 from backend1.repositories.student_repository import StudentRepository
-from backend1.schemas.student import SinhVienRead
-from backend1.models.student import SinhVien
-from backend1.models.academic import Lop, Nganh, Khoa
+from backend1.schemas.student import SinhVienRead, SinhVienUpdate
+from backend1.models.student import SinhVien, KQ_HocTap
+from backend1.models.academic import Lop, Nganh, Khoa, MonHoc
+from backend1.schemas.admin import GradeInput
+from fastapi.responses import Response
+import io
+import os
+from datetime import datetime
 
-router = APIRouter()
+# Optional: Try to import reportlab for PDF generation
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfgen import canvas
+    from reportlab.lib import colors
+    HAS_REPORTLAB = True
+except ImportError:
+    HAS_REPORTLAB = False
+
+student_router = APIRouter()
+academic_router = APIRouter()
 
 def get_scale4(diem10: float) -> float:
     if diem10 >= 8.5: return 4.0
@@ -16,8 +31,8 @@ def get_scale4(diem10: float) -> float:
     if diem10 >= 4.0: return 1.0
     return 0.0
 
-@router.get("/{ma_sv}/transcript", response_model=Any)
-@router.get("/diem/{ma_sv}", response_model=Any)
+@academic_router.get("/{ma_sv}/transcript", response_model=Any)
+@academic_router.get("/diem/{ma_sv}", response_model=Any)
 def get_transcript(ma_sv: str, db: Session = Depends(get_db)):
     repo = StudentRepository(db)
     results = repo.get_transcript(ma_sv)
@@ -88,7 +103,7 @@ def get_transcript(ma_sv: str, db: Session = Depends(get_db)):
         "rank": rank
     }
 
-@router.get("/gpa/{ma_sv}", response_model=dict)
+@academic_router.get("/gpa/{ma_sv}", response_model=dict)
 def get_gpa(ma_sv: str, db: Session = Depends(get_db)):
     repo = StudentRepository(db)
     results = repo.get_transcript(ma_sv)
@@ -113,19 +128,16 @@ def get_gpa(ma_sv: str, db: Session = Depends(get_db)):
         }
     }
 
-@router.get("/{ma_sv}", response_model=dict)
-@router.get("/{ma_sv}/profile", response_model=dict)
+@student_router.get("/{ma_sv}", response_model=dict)
+@student_router.get("/{ma_sv}/profile", response_model=dict)
 def get_student_profile(ma_sv: str, db: Session = Depends(get_db)):
-    repo = StudentRepository(db)
-    # Ensure we get the latest student data from DB
     student = db.query(SinhVien).filter(SinhVien.ma_sv == ma_sv).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
-    
+
     lop = None
     nganh = None
     khoa = None
-    
     if student.ma_lop:
         lop = db.query(Lop).filter(Lop.ma_lop == student.ma_lop).first()
         if lop:
@@ -143,7 +155,24 @@ def get_student_profile(ma_sv: str, db: Session = Depends(get_db)):
         }
     }
 
-@router.get("/tuition/{ma_sv}", response_model=dict)
+@student_router.put("/{ma_sv}", response_model=dict)
+def update_student_profile(ma_sv: str, data: SinhVienUpdate, db: Session = Depends(get_db)):
+    student = db.query(SinhVien).filter(SinhVien.ma_sv == ma_sv).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+
+    update_data = data.model_dump(exclude_unset=True)
+    if not update_data:
+        return {"success": True, "message": "No changes detected"}
+
+    for key, value in update_data.items():
+        setattr(student, key, value)
+    
+    db.commit()
+    db.refresh(student)
+    return {"success": True, "message": "Profile updated successfully"}
+
+@academic_router.get("/tuition/{ma_sv}", response_model=dict)
 def get_tuition(ma_sv: str, db: Session = Depends(get_db)):
     # Fetch tuition records for the student
     from backend1.models.student import HocPhi
@@ -187,7 +216,129 @@ def get_tuition(ma_sv: str, db: Session = Depends(get_db)):
         }
     }
 
-@router.get("/", response_model=dict)
+
+@academic_router.get("/tuition/{ma_sv}/export")
+def export_invoice(ma_sv: str, db: Session = Depends(get_db)):
+    from backend1.models.student import HocPhi
+    student = db.query(SinhVien).filter(SinhVien.ma_sv == ma_sv).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+        
+    hoc_phis = db.query(HocPhi).filter(HocPhi.ma_sv == ma_sv).all()
+    if not hoc_phis:
+        raise HTTPException(status_code=404, detail="No tuition data found")
+
+    if not HAS_REPORTLAB:
+        # Fallback to plain text if reportlab is missing
+        output = io.StringIO()
+        output.write(f"HOA DON HOC PHI - SINH VIEN: {student.ho_ten} ({student.ma_sv})\n")
+        output.write("-" * 50 + "\n")
+        for hp in hoc_phis:
+            output.write(f"Hoc ky: {hp.ten_hoc_ky}\n")
+            output.write(f"Tong tien: {hp.tong_tien:,.0f} VND\n")
+            output.write(f"Da dong: {hp.da_dong:,.0f} VND\n")
+            output.write(f"Con no: {hp.con_no:,.0f} VND\n")
+            output.write("-" * 20 + "\n")
+        
+        return Response(
+            content=output.getvalue(),
+            media_type="text/plain",
+            headers={"Content-Disposition": f"attachment; filename=invoice_{ma_sv}.txt"}
+        )
+
+    # Generate PDF using reportlab
+    buffer = io.BytesIO()
+    p = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    # Header
+    p.setFont("Helvetica-Bold", 20)
+    p.drawCentredString(width/2, height - 50, "HOA DON HOC PHI")
+    
+    p.setFont("Helvetica", 12)
+    p.drawString(50, height - 100, f"Sinh vien: {student.ho_ten}")
+    p.drawString(50, height - 120, f"MSSV: {student.ma_sv}")
+    p.drawString(50, height - 140, f"Ngay xuat: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    
+    y = height - 180
+    for hp in hoc_phis:
+        if y < 100: # New page if needed
+            p.showPage()
+            y = height - 50
+            
+        p.setFont("Helvetica-Bold", 14)
+        p.drawString(50, y, f"Hoc ky: {hp.ten_hoc_ky}")
+        y -= 25
+        
+        p.setFont("Helvetica", 12)
+        p.drawString(70, y, f"Tong tien hoc phi: {hp.tong_tien:,.0f} VND")
+        y -= 20
+        p.drawString(70, y, f"Da thanh toan: {hp.da_dong:,.0f} VND")
+        y -= 20
+        p.drawString(70, y, f"Con no: {hp.con_no:,.0f} VND")
+        y -= 20
+        p.drawString(70, y, f"Han nop: {hp.han_nop if hp.han_nop else 'N/A'}")
+        y -= 30
+        p.line(50, y+10, width-50, y+10)
+        y -= 20
+
+    p.showPage()
+    p.save()
+    
+    buffer.seek(0)
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=invoice_{ma_sv}.pdf"}
+    )
+
+@student_router.get("/", response_model=dict)
 def list_students(db: Session = Depends(get_db)):
     items = db.query(SinhVien).order_by(SinhVien.ma_sv.desc()).all()
     return {"success": True, "data": [SinhVienRead.model_validate(i) for i in items]}
+
+@academic_router.post("/save-grade", response_model=dict)
+def post_grade(data: GradeInput, db: Session = Depends(get_db)):
+    """Add or update a student's grade for a subject"""
+    # 1. Verify student exists
+    student = db.query(SinhVien).filter(SinhVien.ma_sv == data.ma_sv).first()
+    if not student:
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy sinh viên {data.ma_sv}")
+    
+    # 2. Verify subject exists
+    subject = db.query(MonHoc).filter(MonHoc.ma_mh == data.ma_mh).first()
+    if not subject:
+        # Fallback: Search by name if ID lookup fails
+        subject = db.query(MonHoc).filter(MonHoc.ten_mh.ilike(f"%{data.ma_mh}%")).first()
+        
+    if not subject:
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy môn học có mã hoặc tên là '{data.ma_mh}'")
+    
+    # 3. Create or update the grade record
+    # Check if a grade for this student, subject, and semester already exists
+    grade_obj = db.query(KQ_HocTap).filter(
+        KQ_HocTap.ma_sv == data.ma_sv,
+        KQ_HocTap.ma_mh == subject.ma_mh,
+        KQ_HocTap.hoc_ky == data.hoc_ky
+    ).first()
+    
+    if grade_obj:
+        grade_obj.diem = data.diem
+        # print(f"DEBUG_BACKEND: Updated grade for {data.ma_sv} - {data.ma_mh}")
+    else:
+        grade_obj = KQ_HocTap(
+            ma_sv=data.ma_sv,
+            ma_mh=subject.ma_mh,
+            hoc_ky=data.hoc_ky,
+            diem=data.diem
+        )
+        db.add(grade_obj)
+        # print(f"DEBUG_BACKEND: Created new grade for {data.ma_sv} - {data.ma_mh}")
+    
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Lỗi cơ sở dữ liệu: {str(e)}")
+        
+    return {"success": True, "message": "Đã lưu kết quả học tập thành công"}

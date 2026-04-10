@@ -50,6 +50,7 @@ class AdminDashboard(BaseDashboard):
             ("Khoa Đào tạo", "🏢", lambda: self.show_crud("Khoa", "/khoa/")),
             ("Ngành học", "📚", lambda: self.show_crud("Ngành", "/nganh/")),
             ("Lớp sinh viên", "🏫", lambda: self.show_crud("Lớp", "/lop/")),
+            ("Môn học", "📖", lambda: self.show_crud("Môn học", "/mon-hoc/")),
             ("Q.Lý Sinh viên", "👥", self.show_sinh_vien),
             ("Quản lý Điểm", "📝", self.show_hoc_tap),
             ("Xét Tốt nghiệp", "🎓", self.show_tot_nghiep),
@@ -311,9 +312,13 @@ class AdminDashboard(BaseDashboard):
             elif status == "Đã nhập học":
                 tk.Label(r, text="✓ Đã xong", font=("Segoe UI", 9, "bold"), bg=row_bg, fg="#34A853").place(relx=0.85, rely=0.5, anchor="w")
             else:
+                is_ready = status != "Chưa đăng ký PT"
                 btn_text = "Duyệt"
-                btn_col = "#1A73E8"
-                tk.Button(r, text=btn_text, font=("Segoe UI", 9), bg=btn_col, fg="white", relief="flat", padx=15,
+                btn_col = "#1A73E8" if is_ready else "#9E9E9E"
+                state = "normal" if is_ready else "disabled"
+                
+                tk.Button(r, text=btn_text, font=("Segoe UI", 9), bg=btn_col, fg="white", 
+                         relief="flat", padx=15, state=state,
                          command=lambda m=row.get('ma_hso'): self.approve_admission(m)).place(relx=0.85, rely=0.5, anchor="w")
 
             tk.Frame(table_card, bg="#F1F3F4", height=1).pack(fill="x")
@@ -323,6 +328,9 @@ class AdminDashboard(BaseDashboard):
         if res.get("success"):
             messagebox.showinfo("Thành công", f"Đã duyệt hồ sơ {ma_hso}")
             self.show_tuyen_sinh()
+        else:
+            error_msg = res.get("detail", "Không thể duyệt hồ sơ này. Thí sinh có thể chưa hoàn thiện đăng ký.")
+            messagebox.showerror("Lỗi", error_msg)
 
     def revoke_admission(self, ma_hso):
         res = api.post(f"/admission/revoke/{ma_hso}")
@@ -378,6 +386,7 @@ class AdminDashboard(BaseDashboard):
             "Khoa": [("ma_khoa", "Mã Khoa", 0.3), ("ten_khoa", "Tên Khoa", 0.5)],
             "Ngành": [("ma_nganh", "Mã Ngành", 0.2), ("ten_nganh", "Tên Ngành", 0.4), ("ma_khoa", "Mã Khoa", 0.2)],
             "Lớp": [("ma_lop", "Mã Lớp", 0.2), ("ten_lop", "Tên Lớp", 0.4), ("ma_nganh", "Mã Ngành", 0.2)],
+            "Môn học": [("ma_mh", "Mã Môn", 0.3), ("ten_mh", "Tên Môn Học", 0.4), ("so_tin_chi", "Tín chỉ", 0.2)],
         }
         cols_config = entity_columns.get(title, [])
 
@@ -908,6 +917,7 @@ class AdminDashboard(BaseDashboard):
             "Khoa": [("Mã Khoa", "ma_khoa"), ("Tên Khoa", "ten_khoa")],
             "Ngành": [("Mã Ngành", "ma_nganh"), ("Tên Ngành", "ten_nganh"), ("Mã Khoa", "ma_khoa")],
             "Lớp": [("Mã Lớp", "ma_lop"), ("Tên Lớp", "ten_lop"), ("Mã Ngành", "ma_nganh")],
+            "Môn học": [("Mã Môn", "ma_mh"), ("Tên Môn", "ten_mh"), ("Số tín chỉ", "so_tin_chi")],
         }
         
         entries = {}
@@ -936,6 +946,58 @@ class AdminDashboard(BaseDashboard):
         btn = tk.Button(btn_fr, text=f"Lưu {title}", command=save)
         btn.pack(fill="x")
         style_button(btn)
+
+    def edit_item_dialog(self, title, endpoint, row):
+        dialog = tk.Toplevel(self.root)
+        dialog.title(f"Sửa {title}")
+        dialog.configure(bg="white")
+        self.center_window(dialog, 450, 400)
+        
+        tk.Label(dialog, text=f"CẬP NHẬT {title.upper()}", font=("Segoe UI", 14, "bold"), 
+                 bg="white", fg=COLORS["WARNING"]).pack(pady=25)
+        
+        fields_config = {
+            "Khoa": [("Tên Khoa", "ten_khoa")],
+            "Ngành": [("Tên Ngành", "ten_nganh"), ("Mã Khoa", "ma_khoa")],
+            "Lớp": [("Tên Lớp", "ten_lop"), ("Mã Ngành", "ma_nganh")],
+            "Môn học": [("Tên Môn", "ten_mh"), ("Số tín chỉ", "so_tin_chi")],
+        }
+        
+        # Primary key mapping
+        pk_map = {"Khoa": "ma_khoa", "Ngành": "ma_nganh", "Lớp": "ma_lop", "Môn học": "ma_mh"}
+        pk_key = pk_map.get(title)
+        pk_val = row.get(pk_key)
+
+        entries = {}
+        for label, key in fields_config.get(title, []):
+            fr = tk.Frame(dialog, bg="white")
+            fr.pack(pady=8, padx=40, fill="x")
+            tk.Label(fr, text=label, font=("Segoe UI", 10), bg="white", fg="#5F6368").pack(anchor="w")
+            e = tk.Entry(fr)
+            e.insert(0, str(row.get(key, "")))
+            e.pack(fill="x", pady=(5, 0))
+            style_entry(e)
+            entries[key] = e
+            
+        def save():
+            data = {k: e.get().strip() for k, e in entries.items()}
+            # Re-include PK
+            data[pk_key] = pk_val 
+            
+            res = api.put(f"{endpoint}{pk_val}", data)
+            if res.get("success"):
+                messagebox.showinfo("OK", "Đã cập nhật thành công")
+                dialog.destroy()
+                self.show_crud(title, endpoint)
+            else:
+                messagebox.showerror("Lỗi", res.get("message", "Lỗi từ máy chủ"))
+        
+        btn_fr = tk.Frame(dialog, bg="white")
+        btn_fr.pack(pady=30, padx=40, fill="x")
+        
+        btn = tk.Button(btn_fr, text="Lưu thay đổi", command=save)
+        btn.pack(fill="x")
+        style_button(btn, "WARNING")
 
     def add_sinh_vien_dialog(self):
         dialog = tk.Toplevel(self.root)
@@ -1058,12 +1120,13 @@ class AdminDashboard(BaseDashboard):
                 messagebox.showwarning("Lỗi", "Điểm phải là số")
                 return
                 
-            res = api.post("/hoc-tap/diem", data)
+            res = api.post("/hoc-tap/save-grade", data)
             if res.get("success"):
-                messagebox.show_info("Thành công", "Đã lưu kết quả học tập")
+                messagebox.showinfo("Thành công", "Đã lưu kết quả học tập")
                 dialog.destroy()
             else:
-                messagebox.showerror("Lỗi", res.get("message", "Lỗi từ hệ thống"))
+                err_msg = res.get("detail", res.get("message", "Lỗi từ hệ thống"))
+                messagebox.showerror("Lỗi", err_msg)
                 
         save_btn = tk.Button(dialog, text="Xác nhận lưu điểm", command=save)
         save_btn.pack(pady=30, padx=40, fill="x")

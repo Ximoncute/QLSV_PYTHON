@@ -1,8 +1,10 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 from frontend.core.api_client import api
 from frontend.core.styles import COLORS, setup_card
 from frontend.views.dashboards.base_dashboard import BaseDashboard
+import os
+from PIL import Image, ImageTk
 
 class StudentDashboard(BaseDashboard):
     def __init__(self, root, on_logout):
@@ -100,8 +102,22 @@ class StudentDashboard(BaseDashboard):
         avatar_frame.pack_propagate(False)
         
         initials = "".join([n[0] for n in sv.get("ho_ten", "S").split()[:2]]).upper()
-        tk.Label(avatar_frame, text=initials, font=("Segoe UI", 28, "bold"), 
-                bg=COLORS["PRIMARY"], fg="white").pack(expand=True)
+        
+        photo_path = sv.get("anh_dai_dien")
+        photo_loaded = False
+        if photo_path and os.path.exists(photo_path):
+            try:
+                img = Image.open(photo_path)
+                img = img.resize((90, 90), Image.Resampling.LANCZOS)
+                self.photo_img = ImageTk.PhotoImage(img) # Keep reference
+                tk.Label(avatar_frame, image=self.photo_img, bg=COLORS["PRIMARY"]).pack(expand=True)
+                photo_loaded = True
+            except Exception as e:
+                print(f"Error loading photo: {e}")
+
+        if not photo_loaded:
+            tk.Label(avatar_frame, text=initials, font=("Segoe UI", 28, "bold"), 
+                    bg=COLORS["PRIMARY"], fg="white").pack(expand=True)
 
         # Name & Info Details
         name_info = tk.Frame(header_card, bg="white")
@@ -133,6 +149,12 @@ class StudentDashboard(BaseDashboard):
 
         tk.Label(badge_frame, text=status_text, font=("Segoe UI", 8, "bold"), 
                 bg=bg_col, fg=fg_col, padx=8, pady=2).pack(side="left", padx=10)
+
+        # Edit Profile Button
+        edit_btn = tk.Button(header_card, text="📝 Sửa thông tin", font=("Segoe UI", 9, "bold"),
+                           bg=COLORS["NAV_BG"], fg="white", relief="flat",
+                           padx=15, pady=8, cursor="hand2", command=lambda: self.edit_profile(sv))
+        edit_btn.pack(side="right", padx=30)
 
         # Main Info Grid
         info_container = tk.Frame(self.content, bg=COLORS["BG"])
@@ -292,7 +314,8 @@ class StudentDashboard(BaseDashboard):
                 font=("Segoe UI", 20, "bold"), bg=COLORS["BG"], fg=COLORS["TEXT_PRIMARY"]).pack(side="left")
         
         tk.Button(header_frame, text="📥 Xuất hóa đơn (PDF)", font=("Segoe UI", 9, "bold"),
-                 bg=COLORS["NAV_BG"], fg="white", relief="flat", padx=15, pady=5, cursor="hand2").pack(side="right")
+                 bg=COLORS["NAV_BG"], fg="white", relief="flat", padx=15, pady=5, cursor="hand2",
+                 command=self.export_invoice).pack(side="right")
 
         semesters = data.get("semesters", []) if isinstance(data, dict) else []
         if not semesters:
@@ -404,20 +427,122 @@ class StudentDashboard(BaseDashboard):
         tk.Label(err_frame, text="⚠️", font=("Segoe UI", 36), bg=COLORS["BG"], fg="#94a3b8").pack()
         tk.Label(err_frame, text=msg, font=("Segoe UI", 11), bg=COLORS["BG"], fg="#64748b").pack(pady=10)
 
-    def clear_content(self):
-        """Clear central content area and reset scroll (Inherited)"""
-        super().clear_content()
+    def edit_profile(self, sv_data):
+        edit_win = tk.Toplevel(self.root)
+        edit_win.title("Chỉnh sửa thông tin cá nhân")
+        edit_win.geometry("500x650")
+        edit_win.configure(bg="white")
+        edit_win.transient(self.root)
+        edit_win.grab_set()
+
+        # Center the window
+        edit_win.update_idletasks()
+        x = (edit_win.winfo_screenwidth() // 2) - (500 // 2)
+        y = (edit_win.winfo_screenheight() // 2) - (650 // 2)
+        edit_win.geometry(f"500x650+{x}+{y}")
+
+        tk.Label(edit_win, text="CHỈNH SỬA THÔNG TIN", font=("Segoe UI", 16, "bold"), 
+                 bg="white", fg=COLORS["PRIMARY"]).pack(pady=20)
+
+        container = tk.Frame(edit_win, bg="white", padx=40)
+        container.pack(fill="both", expand=True)
+
+        fields = {}
+        
+        def create_input(label, key, value):
+            tk.Label(container, text=label, font=("Segoe UI", 9), bg="white", fg=COLORS["TEXT_SECONDARY"]).pack(anchor="w", pady=(10, 0))
+            ent = tk.Entry(container, font=("Segoe UI", 10), relief="flat", bg="#f8fafc", highlightthickness=1)
+            ent.insert(0, str(value or ""))
+            ent.pack(fill="x", pady=5, ipady=5)
+            ent.config(highlightbackground="#e2e8f0", highlightcolor=COLORS["PRIMARY"])
+            fields[key] = ent
+
+        create_input("Họ và tên", "ho_ten", sv_data.get("ho_ten"))
+        create_input("Ngày sinh (YYYY-MM-DD)", "ngay_sinh", sv_data.get("ngay_sinh"))
+        create_input("Email", "email", sv_data.get("email"))
+        create_input("Số điện thoại", "so_dien_thoai", sv_data.get("so_dien_thoai"))
+        create_input("Căn cước công dân", "cccd", sv_data.get("cccd"))
+
+        # Photo selection
+        photo_path = tk.StringVar(value=sv_data.get("anh_dai_dien") or "")
+        tk.Label(container, text="Ảnh đại diện", font=("Segoe UI", 9), bg="white", fg=COLORS["TEXT_SECONDARY"]).pack(anchor="w", pady=(10, 0))
+        
+        photo_frame = tk.Frame(container, bg="white")
+        photo_frame.pack(fill="x", pady=5)
+        
+        tk.Entry(photo_frame, textvariable=photo_path, font=("Segoe UI", 9), relief="flat", bg="#f1f5f9", state="readonly").pack(side="left", fill="x", expand=True, ipady=3)
+        
+        def browse_photo():
+            file = filedialog.askopenfilename(filetypes=[("Image files", "*.jpg *.jpeg *.png")])
+            if file:
+                photo_path.set(file)
+
+        tk.Button(photo_frame, text="Chọn ảnh", command=browse_photo, font=("Segoe UI", 8), bg=COLORS["PRIMARY"], fg="white", relief="flat").pack(side="right", padx=(5, 0))
+
+        def save_changes():
+            payload = {k: v.get() for k, v in fields.items()}
+            payload["anh_dai_dien"] = photo_path.get()
+            
+            res = api.put(f"/sinh-vien/{self.ma_sv}", json=payload)
+            if res.get("success"):
+                messagebox.showinfo("Thành công", "Đã cập nhật thông tin thành công!")
+                edit_win.destroy()
+                self.show_profile() # Refresh view
+            else:
+                messagebox.showerror("Lỗi", res.get("detail", "Không thể cập nhật thông tin"))
+
+        tk.Button(edit_win, text="LƯU THAY ĐỔI", font=("Segoe UI", 10, "bold"), 
+                  bg=COLORS["SUCCESS"], fg="white", relief="flat", pady=12, cursor="hand2",
+                  command=save_changes).pack(fill="x", padx=40, pady=30)
+
+    def export_invoice(self):
+        try:
+            # First, check if there's tuition data
+            result = api.get(f"/hoc-tap/tuition/{self.ma_sv}")
+            if not result.get("success") or not result.get("data", {}).get("semesters"):
+                messagebox.showwarning("Thông báo", "Chưa có thông tin học phí để xuất hóa đơn.")
+                return
+
+            save_path = filedialog.asksaveasfilename(
+                defaultextension=".pdf",
+                filetypes=[("PDF files", "*.pdf"), ("Text files", "*.txt")],
+                initialfile=f"HoaDon_HocPhi_{self.ma_sv}.pdf"
+            )
+            
+            if not save_path: return
+
+            # Get the file from backend
+            from frontend.core.api_client import API_BASE_URL
+            import requests
+            
+            response = requests.get(f"{API_BASE_URL}/hoc-tap/tuition/{self.ma_sv}/export", stream=True)
+            if response.status_code == 200:
+                with open(save_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                
+                messagebox.showinfo("Thành công", f"Đã xuất hóa đơn tại:\n{save_path}")
+                # Try to open the file
+                try: os.startfile(save_path)
+                except: pass
+            else:
+                messagebox.showerror("Lỗi", "Không thể xuất hóa đơn từ hệ thống.")
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Lỗi xuất hóa đơn: {str(e)}")
 
     def create_card(self, parent, title):
-        c = tk.Frame(parent, bg="white", padx=25, pady=25)
-        c.pack(fill="x", pady=(0, 20))
-        setup_card(c)
-        tk.Label(c, text=title, font=("Segoe UI", 13, "bold"), 
-                bg="white", fg=COLORS["TEXT_PRIMARY"]).pack(anchor="w", pady=(0, 20))
+        """Creates a styled section card with a title and returns the inner frame for content."""
+        card = tk.Frame(parent, bg="white", padx=25, pady=20)
+        card.pack(fill="x", pady=(0, 20))
+        setup_card(card)
         
-        content_f = tk.Frame(c, bg="white")
-        content_f.pack(fill="both", expand=True)
-        return content_f
+        tk.Label(card, text=title.upper(), font=("Segoe UI", 11, "bold"), 
+                 bg="white", fg=COLORS["PRIMARY"]).pack(anchor="w", pady=(0, 15))
+        
+        # Inner frame to hold the grid of fields
+        inner = tk.Frame(card, bg="white")
+        inner.pack(fill="x")
+        return inner
 
     def add_field(self, parent, label, value, row, col, width=30):
         f = tk.Frame(parent, bg="white")

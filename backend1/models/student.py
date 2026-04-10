@@ -15,6 +15,7 @@ class SinhVien(Base):
     ma_hso = Column(String(10), ForeignKey("hso_xet_tuyen.ma_hso"))
     trang_thai = Column(String(20), default="Đang học")
     ngay_nhap_hoc = Column(Date)
+    anh_dai_dien = Column(String(255), nullable=True)
     
     lop = relationship("Lop", back_populates="sinh_viens")
     hoso = relationship("HSO_XetTuyen", back_populates="sinh_viens")

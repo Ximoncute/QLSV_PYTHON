@@ -4,6 +4,7 @@ from typing import List, Optional
 class GradeInput(BaseModel):
     ma_sv: str
     ma_mh: str
+    hoc_ky: str
     diem: float
 
 class ApproveResponse(BaseModel):
@@ -37,3 +38,11 @@ class LopRead(LopCreate):
 class EnrollRequest(BaseModel):
     ma_hso: str
     ma_lop: Optional[str] = None
+
+class MonHocCreate(BaseModel):
+    ma_mh: str
+    ten_mh: str
+    so_tin_chi: int
+
+class MonHocRead(MonHocCreate):
+    model_config = {"from_attributes": True}

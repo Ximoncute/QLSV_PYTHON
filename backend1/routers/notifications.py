@@ -118,3 +118,17 @@ def create_notification(data: dict, db: Session = Depends(get_db), authorization
     db.add(new_tb)
     db.commit()
     return {"success": True}
+
+@router.delete("/{ma_tb}", response_model=dict)
+def delete_notification(ma_tb: str, db: Session = Depends(get_db)):
+    """Delete a notification"""
+    tb = db.query(ThongBao).filter(ThongBao.ma_tb == ma_tb).first()
+    if not tb:
+        raise HTTPException(status_code=404, detail="Không tìm thấy thông báo")
+    
+    # Also delete read records for this notification
+    db.query(TB_NguoiNhan).filter(TB_NguoiNhan.ma_tb == ma_tb).delete()
+    
+    db.delete(tb)
+    db.commit()
+    return {"success": True, "message": "Đã xóa thông báo thành công"}

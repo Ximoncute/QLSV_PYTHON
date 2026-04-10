@@ -156,10 +156,18 @@ class AdmissionDashboard(BaseDashboard):
 
     def show_profile(self):
         self.clear_content()
-        tk.Label(self.content, text="Hồ sơ cá nhân", font=("Segoe UI", 20, "bold"), bg=COLORS["BG"]).pack(anchor="w", pady=(0, 20))
+        header_row = tk.Frame(self.content, bg=COLORS["BG"])
+        header_row.pack(fill="x", pady=(0, 20))
+        
+        tk.Label(header_row, text="Hồ sơ cá nhân", font=("Segoe UI", 20, "bold"), bg=COLORS["BG"]).pack(side="left")
         
         res = api.get("/admission/my")
         data = res.get("data", {}) if res.get("success") else {}
+
+        # Edit Button
+        tk.Button(header_row, text="📝 Chỉnh sửa", font=("Segoe UI", 9, "bold"),
+                 bg="#1B5E20", fg="white", relief="flat", padx=15, pady=8, cursor="hand2",
+                 command=lambda: self.edit_profile(data)).pack(side="right")
         
         card = tk.Frame(self.content, bg="white", padx=30, pady=30)
         card.pack(fill="x")
@@ -179,6 +187,62 @@ class AdmissionDashboard(BaseDashboard):
             tk.Label(row, text=f"{icon}  {label}", font=("Segoe UI", 10, "bold"), bg="white", fg="#5F6368", width=25, anchor="w").pack(side="left")
             tk.Label(row, text=val, font=("Segoe UI", 11), bg="white").pack(side="left")
             tk.Frame(card, bg="#F1F3F4", height=1).pack(fill="x")
+
+    def edit_profile(self, data):
+        edit_win = tk.Toplevel(self.root)
+        edit_win.title("Chỉnh sửa hồ sơ thí sinh")
+        edit_win.geometry("450x550")
+        edit_win.configure(bg="white")
+        edit_win.transient(self.root)
+        edit_win.grab_set()
+
+        # Center the window
+        edit_win.update_idletasks()
+        x = (edit_win.winfo_screenwidth() // 2) - (450 // 2)
+        y = (edit_win.winfo_screenheight() // 2) - (550 // 2)
+        edit_win.geometry(f"450x550+{x}+{y}")
+
+        tk.Label(edit_win, text="CẬP NHẬT THÔNG TIN", font=("Segoe UI", 16, "bold"), 
+                 bg="white", fg="#1B5E20").pack(pady=30)
+
+        container = tk.Frame(edit_win, bg="white", padx=40)
+        container.pack(fill="both", expand=True)
+
+        fields = {}
+        
+        def create_input(label, key, value):
+            tk.Label(container, text=label, font=("Segoe UI", 9), bg="white", fg="#5F6368").pack(anchor="w", pady=(10, 0))
+            ent = tk.Entry(container, font=("Segoe UI", 10), relief="flat", bg="#F1F3F4", highlightthickness=1)
+            ent.insert(0, str(value or ""))
+            ent.pack(fill="x", pady=5, ipady=8)
+            ent.config(highlightbackground="#E2E8F0", highlightcolor="#2E7D32")
+            fields[key] = ent
+
+        create_input("Họ và Tên", "ho_ten", data.get("ho_ten"))
+        create_input("Số CCCD", "cccd", data.get("cccd"))
+        create_input("Số điện thoại", "sdt", data.get("sdt"))
+
+        def save_changes():
+            payload = {k: v.get() for k, v in fields.items()}
+            
+            # Validation
+            if not all(payload.values()):
+                messagebox.showwarning("Thiếu dữ liệu", "Vui lòng nhập đầy đủ thông tin.")
+                return
+
+            res = api.put("/admission/profile", json=payload)
+            if res.get("success"):
+                messagebox.showinfo("Thành công", "Đã cập nhật hồ sơ thành công!")
+                edit_win.destroy()
+                self.show_profile() # Refresh view
+            else:
+                # Show specific error if available
+                error_msg = res.get("error") or res.get("detail") or "Không thể cập nhật hồ sơ"
+                messagebox.showerror("Lỗi", error_msg)
+
+        tk.Button(edit_win, text="LƯU THAY ĐỔI", font=("Segoe UI", 10, "bold"), 
+                  bg="#2E7D32", fg="white", relief="flat", pady=12, cursor="hand2",
+                  command=save_changes).pack(fill="x", padx=40, pady=30)
 
     def show_methods(self):
         self.clear_content()

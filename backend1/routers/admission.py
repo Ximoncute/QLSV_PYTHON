@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from backend1.db.session import get_db
 from backend1.models.admission import HSO_XetTuyen, PT_XetTuyen
+from backend1.schemas.admission import AdmissionProfileUpdate, AdmissionSubmit
 from typing import List
 
 router = APIRouter()
@@ -28,7 +29,12 @@ def approve_hoso(ma_hso: str, db: Session = Depends(get_db)):
     """Approve candidate status"""
     pt = db.query(PT_XetTuyen).filter(PT_XetTuyen.ma_hso == ma_hso).first()
     if not pt:
-        raise HTTPException(status_code=404, detail="Hồ sơ không có phương thức xét tuyển")
+        print(f"DEBUG_BACKEND: ma_hso {ma_hso} not found in PT_XetTuyen")
+        # Return 400 instead of 404 to distinguish from 'route not found'
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Thí sinh {ma_hso} chưa đăng ký phương thức xét tuyển. Không thể duyệt."
+        )
     
     pt.trang_thai = "Đã duyệt"
     db.commit()
@@ -51,8 +57,8 @@ def get_my_admission_profile(db: Session = Depends(get_db), authorization: str =
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     token = authorization.split(" ")[1]
-    from backend1.core import security
-    payload = security.decode_access_token(token)
+    from backend1.core.security import decode_access_token
+    payload = decode_access_token(token)
     ma_tk = payload.get("sub")
     
     hoso = db.query(HSO_XetTuyen).filter(HSO_XetTuyen.ma_tk == ma_tk).first()
@@ -81,29 +87,67 @@ def get_my_admission_profile(db: Session = Depends(get_db), authorization: str =
         }
     }
 
-@router.post("/submit", response_model=dict)
-def submit_admission(data: dict, db: Session = Depends(get_db), authorization: str = Header(None)):
-    """Submit or update admission method/program selection"""
+@router.put("/profile", response_model=dict)
+def update_admission_profile(
+    data: AdmissionProfileUpdate, 
+    db: Session = Depends(get_db), 
+    authorization: str = Header(None)
+):
+    """Update profile of the authenticated candidate"""
+    print(f"DEBUG_BACKEND: PUT /admission/profile received. Data: {data}")
     if not authorization:
         raise HTTPException(status_code=401, detail="Unauthorized")
     
     token = authorization.split(" ")[1]
-    from backend1.core import security
-    payload = security.decode_access_token(token)
+    from backend1.core.security import decode_access_token
+    payload = decode_access_token(token)
+    ma_tk = payload.get("sub")
+    
+    hoso = db.query(HSO_XetTuyen).filter(HSO_XetTuyen.ma_tk == ma_tk).first()
+    if not hoso:
+        print(f"DEBUG_BACKEND: Profile not found for ma_tk: {ma_tk}")
+        raise HTTPException(status_code=404, detail="Hồ sơ không tồn tại")
+    
+    # Update fields if provided
+    update_data = data.model_dump(exclude_unset=True)
+    if "ho_ten" in update_data: hoso.ho_ten = update_data["ho_ten"]
+    if "cccd" in update_data: hoso.cccd = update_data["cccd"]
+    if "sdt" in update_data: hoso.sdt = update_data["sdt"]
+    
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "error": f"Lỗi cơ sở dữ liệu: {str(e)}"}
+        
+    return {"success": True, "message": "Cập nhật hồ sơ thành công"}
+
+@router.post("/submit", response_model=dict)
+def submit_admission(
+    data: AdmissionSubmit, 
+    db: Session = Depends(get_db), 
+    authorization: str = Header(None)
+):
+    """Submit or update admission method/program selection"""
+    print(f"DEBUG_BACKEND: POST /admission/submit received. Data: {data}")
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    token = authorization.split(" ")[1]
+    from backend1.core.security import decode_access_token
+    payload = decode_access_token(token)
     ma_tk = payload.get("sub")
     
     # 1. Ensure Profile Exists
     hoso = db.query(HSO_XetTuyen).filter(HSO_XetTuyen.ma_tk == ma_tk).first()
     if not hoso:
+        print(f"DEBUG_BACKEND: Profile not found for ma_tk: {ma_tk}")
         raise HTTPException(status_code=400, detail="Vui lòng hoàn thiện hồ sơ cá nhân trước")
     
     # 2. Extract Data
-    ma_nganh = data.get("ma_nganh")
-    phuong_thuc = data.get("phuong_thuc")
-    diem = str(data.get("diem", "0.0"))
-    
-    if not ma_nganh or not phuong_thuc:
-        raise HTTPException(status_code=400, detail="Thiếu thông tin ngành hoặc phương thức")
+    ma_nganh = data.ma_nganh
+    phuong_thuc = data.phuong_thuc
+    diem = str(data.diem or "0.0")
     
     # 3. Create or Update Method selection
     pt = db.query(PT_XetTuyen).filter(PT_XetTuyen.ma_hso == hoso.ma_hso).first()
@@ -114,6 +158,7 @@ def submit_admission(data: dict, db: Session = Depends(get_db), authorization: s
         pt.phuong_thuc = phuong_thuc
         pt.diem = diem
         pt.trang_thai = "Chờ duyệt" # Reset status on update
+        print(f"DEBUG_BACKEND: Updated existing PT record for hoso: {hoso.ma_hso}")
     else:
         # Create new
         import uuid
@@ -127,6 +172,12 @@ def submit_admission(data: dict, db: Session = Depends(get_db), authorization: s
             trang_thai="Chờ duyệt"
         )
         db.add(new_pt)
+        print(f"DEBUG_BACKEND: Created new PT record for hoso: {hoso.ma_hso}")
     
-    db.commit()
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "error": f"Lỗi cơ sở dữ liệu: {str(e)}"}
+        
     return {"success": True, "message": "Nộp hồ sơ thành công"}
