@@ -60,27 +60,20 @@ File này sẽ tự động:
  #!/bin/bash
 
 echo "Starting Modern UniMS (FastAPI + Modular Tkinter)..."
-
 # Initialize DB
 echo "Initializing fresh database..."
 python3 backend1/init_db.py
-
 # Start Backend
 echo "Starting backend..."
 python3 backend1/run.py &
-
 BACKEND_PID=$!
-
 # Wait for API
 echo "Waiting for API to start..."
 sleep 5
-
 # Start Frontend
 echo "Starting frontend..."
 python3 frontend/main.py
-
 echo "App session finished."
-
 # Kill backend (nếu tồn tại)
 if ps -p $BACKEND_PID > /dev/null
 then
