@@ -58,26 +58,6 @@ File này sẽ tự động:
 - tạo file , chạy lệnh " nano run_app.sh "
 - paste nội dung vào file đó :
  #!/bin/bash
-
-echo "Starting Modern UniMS (FastAPI + Modular Tkinter)..."
-# Initialize DB
-echo "Initializing fresh database..."
-python3 backend1/init_db.py
-# Start Backend
-echo "Starting backend..."
-python3 backend1/run.py &
-BACKEND_PID=$!
-# Wait for API
-echo "Waiting for API to start..."
-sleep 5
-# Start Frontend
-echo "Starting frontend..."
-python3 frontend/main.py
-echo "App session finished."
-# Kill backend (nếu tồn tại)
-if ps -p $BACKEND_PID > /dev/null
-then
-   kill $BACKEND_PID
-fi 
+<img width="937" height="802" alt="image" src="https://github.com/user-attachments/assets/783d3d42-e53f-4310-9d72-9a3b2356f99b" />
 - chạy file đó : ./run_app.sh
 
