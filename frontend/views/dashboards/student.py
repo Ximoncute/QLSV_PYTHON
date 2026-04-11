@@ -512,10 +512,10 @@ class StudentDashboard(BaseDashboard):
             if not save_path: return
 
             # Get the file from backend
-            from frontend.core.api_client import API_BASE_URL
             import requests
             
-            response = requests.get(f"{API_BASE_URL}/hoc-tap/tuition/{self.ma_sv}/export", stream=True)
+            response = requests.get(f"{api.base_url}/hoc-tap/tuition/{self.ma_sv}/export", 
+                                  headers=api.get_headers(), stream=True)
             if response.status_code == 200:
                 with open(save_path, 'wb') as f:
                     for chunk in response.iter_content(chunk_size=8192):
