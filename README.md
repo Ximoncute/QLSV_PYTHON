@@ -58,7 +58,7 @@ File này sẽ tự động:
 - tạo file , chạy lệnh " nano run_app.sh "
 - paste nội dung vào file đó :
  #!/bin/bash
-<img width="937" height="802" alt="image" src="https://github.com/user-attachments/assets/783d3d42-e53f-4310-9d72-9a3b2356f99b" />
+<img width="909" height="810" alt="Ảnh chụp màn hình 2026-04-10 151805" src="https://github.com/user-attachments/assets/bcb6d487-92ad-4d23-892d-fc706a6b6ac7" />
 - cấp quyền thực thi : chmod +x run_app.sh
 - chạy file đó : ./run_app.sh
 
